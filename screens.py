@@ -40,8 +40,8 @@ def _draw_stars(screen, t):
 
 def _draw_title(screen, t):
     bob = int(math.sin(t * 2) * 8)
-    draw_text(screen, "Canvas & Code", 64, GOLD, WIDTH // 2, 150 + bob)
-    draw_text(screen, "A Cooperative Adventure", 24, CREAM, WIDTH // 2, 210 + bob)
+    draw_text(screen, "ALEX N VERO WOWO", 64, GOLD, WIDTH // 2, 150 + bob)
+    draw_text(screen, "A FUN ADVENTURE", 24, CREAM, WIDTH // 2, 210 + bob)
 
 
 def _draw_characters(screen, girl_controls, boy_controls):
