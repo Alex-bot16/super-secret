@@ -1,5 +1,13 @@
+"""Entry point – works both locally (python main.py) and in pygbag (browser)."""
+import asyncio
+import pygame
 from game import Game
-
-if __name__ == '__main__':
+ 
+ 
+async def main():
     game = Game()
-    game.run()
+    await game.run()
+ 
+ 
+asyncio.run(main())
+ 

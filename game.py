@@ -1,10 +1,11 @@
 """
 game.py – Main Game class: loop, state machine, gameplay logic.
 
-Drawing is delegated to screens.py (menu/transitions) and hud.py (in-game UI).
+The run() method is async so pygbag can yield to the browser each frame.
+Works identically when run locally with `python main.py`.
 """
+import asyncio
 import pygame
-import sys
 import os
 
 from constants import WIDTH, HEIGHT, FPS, PINK, BLUE, BLACK, WHITE
@@ -24,13 +25,8 @@ class Game:
         pygame.display.set_caption("Canvas & Code – A Cooperative Adventure")
         self.clock = pygame.time.Clock()
 
-        # Music – put theme.mp3 next to main.py
-        try:
-            pygame.mixer.music.load(os.path.join(os.path.dirname(__file__), "theme.mp3"))
-            pygame.mixer.music.set_volume(0.4)
-            pygame.mixer.music.play(-1)
-        except pygame.error:
-            pass
+        # Music – put theme.ogg (or .mp3) next to main.py
+        self._load_music()
 
         self.girl = Player(60, 400,
             {'left': pygame.K_a, 'right': pygame.K_d, 'jump': pygame.K_w},
@@ -44,6 +40,21 @@ class Game:
         self.level_data = None
         self.transition_timer = 0
         self._menu_cd = 0
+        self.running = True
+
+    def _load_music(self):
+        """Try loading theme music. Supports .ogg (best for web) and .mp3."""
+        base = os.path.dirname(__file__)
+        for ext in ('ogg', 'mp3'):
+            path = os.path.join(base, f"theme.{ext}")
+            if os.path.exists(path):
+                try:
+                    pygame.mixer.music.load(path)
+                    pygame.mixer.music.set_volume(0.4)
+                    pygame.mixer.music.play(-1)
+                    return
+                except pygame.error:
+                    pass
 
     # ── Level management ──────────────────────────────────────────
 
@@ -63,30 +74,29 @@ class Game:
         return all(c.collected for c in self.level_data['collectibles']
                    if c.ctype == 'computer')
 
-    # ── Main loop ─────────────────────────────────────────────────
+    # ── Main loop (async for pygbag) ─────────────────────────────
 
-    def run(self):
-        while True:
+    async def run(self):
+        while self.running:
             self.clock.tick(FPS)
-            if self._handle_events():
-                return
+            self._handle_events()
+
             {'menu': self._tick_menu,
              'playing': self._tick_playing,
              'level_complete': self._tick_level_complete,
              'game_complete': self._tick_game_complete,
             }[self.state]()
+
             pygame.display.flip()
+            await asyncio.sleep(0)  # yield to browser each frame
 
     def _handle_events(self):
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
-                pygame.quit(); return True
+                self.running = False
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 if self.state == 'playing':
                     self.state = 'menu'
-                elif self.state == 'menu':
-                    pygame.quit(); return True
-        return False
 
     # ── Menu ──────────────────────────────────────────────────────
 
@@ -100,7 +110,8 @@ class Game:
             self.current_level = max(1, self.current_level - 1); self._menu_cd = 12
         elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.current_level = min(10, self.current_level + 1); self._menu_cd = 12
-        draw_menu(self.screen, self.current_level, self.girl.controls, self.boy.controls)
+        draw_menu(self.screen, self.current_level,
+                  self.girl.controls, self.boy.controls)
 
     # ── Playing ───────────────────────────────────────────────────
 
@@ -146,8 +157,8 @@ class Game:
         self.girl.draw(self.screen)
         self.boy.draw(self.screen)
         draw_hud(self.screen, self.girl, self.boy, gd, bd)
-        # Title drawn AFTER hud so it doesn't bleed through transparent panels
-        draw_text(self.screen, f"Level {self.current_level}: {d['title']}", 18, WHITE, WIDTH // 2, 92)
+        draw_text(self.screen, f"Level {self.current_level}: {d['title']}",
+                  18, WHITE, WIDTH // 2, 92)
         draw_bottom_bar(self.screen)
 
     # ── Transitions ───────────────────────────────────────────────
